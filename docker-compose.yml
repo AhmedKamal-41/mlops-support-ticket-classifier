@@ -1,0 +1,106 @@
+# Docker Compose configuration for the MLOps Support Ticket Classifier
+# This file defines all services needed to run the complete MLOps stack
+
+version: '3.8'
+
+services:
+  # FastAPI inference service
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: support-ticket-api
+    ports:
+      - "8000:8000"  # Map host port 8000 to container port 8000
+    environment:
+      # MLflow tracking URI (points to mlflow service)
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - MLFLOW_EXPERIMENT_NAME=support_ticket_classifier
+      - MODEL_NAME=support_ticket_classifier
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      # Mount MLflow runs directory so API can access models
+      - ./mlruns:/app/mlruns
+      # Mount data directory (optional, for drift detection)
+      - ./data:/app/data:ro  # Read-only mount
+    depends_on:
+      - mlflow  # Wait for MLflow to start first
+    networks:
+      - mlops-network
+    restart: unless-stopped
+
+  # MLflow tracking server
+  mlflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.mlflow
+    container_name: support-ticket-mlflow
+    ports:
+      - "5000:5000"  # Map host port 5000 to container port 5000
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=file:///mlruns
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlruns
+    volumes:
+      # Persist MLflow data on host machine
+      - ./mlruns:/mlruns
+    networks:
+      - mlops-network
+    restart: unless-stopped
+
+  # Prometheus metrics server
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: support-ticket-prometheus
+    ports:
+      - "9090:9090"  # Map host port 9090 to container port 9090
+    volumes:
+      # Mount Prometheus configuration
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Persist Prometheus data
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - mlops-network
+    restart: unless-stopped
+    depends_on:
+      - api  # Wait for API to start first
+
+  # Grafana visualization dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: support-ticket-grafana
+    ports:
+      - "3000:3000"  # Map host port 3000 to container port 3000
+    environment:
+      # Grafana admin credentials (change in production!)
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      # Mount Grafana provisioning configs
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      # Mount dashboard JSON files
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      # Persist Grafana data
+      - grafana-data:/var/lib/grafana
+    networks:
+      - mlops-network
+    restart: unless-stopped
+    depends_on:
+      - prometheus  # Wait for Prometheus to start first
+
+# Named volumes for data persistence
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+# Docker network for service communication
+networks:
+  mlops-network:
+    driver: bridge
+
