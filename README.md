@@ -16,6 +16,16 @@ This project builds an **MLOps pipeline** around a **customer support ticket cla
 
 The project focuses on **MLOps best practices**: experiment tracking, model versioning, API deployment, metrics monitoring, data drift detection, and automated retraining.
 
+## 📊 System Overview
+
+<div align="center">
+
+![End-to-End MLOps Pipeline](assets/images/mlops-pipeline-infographic.png)
+
+*Complete MLOps pipeline visualization showing the full lifecycle from data ingestion to production deployment with monitoring and automated retraining.*
+
+</div>
+
 ## 🏗️ Architecture
 
 ```
@@ -382,6 +392,14 @@ This is a student-friendly project. Feel free to:
 This project is provided as-is for educational purposes.
 
 ## 🙏 Acknowledgments
+
+Built as a comprehensive MLOps learning project, demonstrating best practices for ML model lifecycle management.
+
+---
+
+**Happy Learning! 🚀**
+
+
 
 Built as a comprehensive MLOps learning project, demonstrating best practices for ML model lifecycle management.
 
