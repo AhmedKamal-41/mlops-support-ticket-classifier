@@ -90,6 +90,12 @@ mlops-support-ticket-classifier/
 │       ├── __init__.py
 │       ├── main.py             # FastAPI application
 │       └── schemas.py          # Pydantic request/response models
+├── dashboard/
+│   └── app.py                  # Streamlit dashboard
+├── scripts/
+│   └── generate_sample_logs.py # Script to generate sample inference logs
+├── logs/                       # Inference logs (JSONL format)
+├── reports/                     # Evaluation artifacts (reports, confusion matrices)
 ├── mlruns/                      # MLflow artifacts (created automatically)
 ├── monitoring/
 │   ├── prometheus.yml           # Prometheus configuration
@@ -141,27 +147,43 @@ mlops-support-ticket-classifier/
    pip install -r requirements.txt
    ```
 
-4. **Train the model**
+4. **Validate the dataset** (optional, but recommended)
+   ```bash
+   python -m src.validate_data --data data/raw/support_tickets_sample.csv
+   ```
+   This validates the dataset schema, labels, and class distribution before training.
+
+5. **Train the model**
    ```bash
    python -m src.train
    ```
    This will:
+   - Validate the dataset (schema, labels, class distribution)
    - Load the dataset from `data/raw/support_tickets_sample.csv`
    - Train a LogisticRegression classifier
+   - Evaluate on validation and test sets
+   - Save evaluation artifacts (confusion matrices, classification reports)
    - Log everything to MLflow (in `mlruns/` directory)
    - Register the model in MLflow Model Registry
 
-5. **Start the FastAPI server**
+6. **Start the FastAPI server**
    ```bash
    uvicorn src.api.main:app --reload
    ```
    The API will be available at `http://localhost:8000`
 
-6. **View MLflow UI** (optional)
+7. **View MLflow UI** (optional)
    ```bash
    mlflow ui --backend-store-uri file:///./mlruns
    ```
    Open `http://localhost:5000` in your browser
+   
+   In MLflow UI, you can:
+   - View all training runs and metrics
+   - Compare model versions
+   - View evaluation artifacts (confusion matrices, classification reports)
+   - See dataset fingerprints for reproducibility
+   - Promote models to Production stage
 
 ### Option 2: Run with Docker Compose (Full Stack)
 
@@ -237,6 +259,32 @@ Response:
 }
 ```
 
+### Data Validation
+
+Validate your dataset before training to catch issues early:
+
+```bash
+# Validate dataset (uses default path from config)
+python -m src.validate_data
+
+# Validate specific dataset file
+python -m src.validate_data --data path/to/data.csv
+
+# Validate and check train/val/test splits are non-overlapping
+python -m src.validate_data --check-splits
+
+# Save validation report to JSON
+python -m src.validate_data --output reports/validation_report.json
+```
+
+The validation checks:
+- Required columns exist (`text`, `label`)
+- No empty text rows
+- Label values are in allowed set (5 classes)
+- Class distribution (warns if extreme imbalance)
+- Train/val/test splits are non-overlapping (if `--check-splits` is used)
+- Computes dataset fingerprint for reproducibility
+
 ### Training a Model
 
 Train a new model and register it in MLflow:
@@ -246,12 +294,46 @@ python -m src.train
 ```
 
 The script will:
+- **Validate the dataset** (schema, labels, class distribution)
 - Load and split the dataset (70% train, 15% val, 15% test)
+- Compute and log dataset fingerprint
 - Preprocess text using TF-IDF vectorization
 - Train a LogisticRegression classifier
 - Evaluate on validation and test sets
+- **Save evaluation artifacts** to `reports/`:
+  - `val_classification_report.json` and `val_confusion_matrix.png`
+  - `test_classification_report.json` and `test_confusion_matrix.png`
 - Log all metrics, parameters, and artifacts to MLflow
 - Register the model in MLflow Model Registry
+
+### Model Evaluation
+
+Evaluate a trained model on test data and generate evaluation artifacts:
+
+```bash
+# Evaluate using MLflow Production model on test split
+python -m src.evaluate --split
+
+# Evaluate using MLflow Production model on full dataset
+python -m src.evaluate
+
+# Evaluate using specific MLflow run
+python -m src.evaluate --mlflow-run-id <run_id> --split
+
+# Evaluate using local model files
+python -m src.evaluate --model-dir models/ --data data/raw/support_tickets_sample.csv
+
+# Specify custom output directory
+python -m src.evaluate --output custom_reports/
+```
+
+The evaluation script:
+- Loads model and vectorizer (from MLflow or local files)
+- Makes predictions on test data
+- Computes metrics (accuracy, macro-F1, per-class F1, etc.)
+- Saves artifacts to `reports/` (or custom directory):
+  - `test_classification_report.json` - All metrics in JSON format
+  - `test_confusion_matrix.png` - Confusion matrix visualization
 
 ### Retraining
 
@@ -283,6 +365,94 @@ To manually promote a model to Production:
      --version <VERSION_NUMBER> \
      --stage Production
    ```
+
+### Streamlit Dashboard
+
+The project includes a premium, recruiter-ready Streamlit dashboard for visualizing model metrics, monitoring inference operations, and tracking system health.
+
+**Running the Dashboard:**
+```bash
+streamlit run dashboard/app.py
+```
+
+The dashboard will open in your browser at `http://localhost:8501`.
+
+**Dashboard Tabs:**
+
+1. **Overview**
+   - KPI cards: Requests (24h), p95 Latency, Error Rate, Macro-F1
+   - Interactive charts: Requests over time, Latency percentiles (p50/p95)
+   - Prediction distribution and recent requests table
+
+2. **Model Quality**
+   - Per-class performance metrics table (precision, recall, F1)
+   - Confusion matrix visualization
+   - Top misclassified examples (if available in logs)
+
+3. **Monitoring**
+   - Sidebar filters: Time range, class filter, status code filter
+   - Throughput chart: Requests per minute over time
+   - Latency histogram: Distribution of request latencies
+   - Errors over time: 500 error tracking
+   - Searchable inference logs table
+
+4. **Drift**
+   - Drift score and status indicators
+   - Reference vs recent statistics comparison
+   - Visual drift comparison charts
+
+5. **Runbook**
+   - Operational guides: Training, evaluation, serving, MLflow
+   - Command snippets and best practices
+   - How to generate sample data
+
+**Generating Sample Data:**
+
+To populate the dashboard with sample data:
+
+```bash
+# Generate sample inference logs (1000 entries)
+python scripts/generate_sample_logs.py --num-logs 1000
+
+# Generate sample classification reports and confusion matrix
+python scripts/generate_sample_reports.py
+
+# Generate reports including drift report
+python scripts/generate_sample_reports.py --include-drift
+
+# Custom output directory
+python scripts/generate_sample_reports.py --output-dir custom_reports/
+```
+
+**Sample Data Features:**
+- **Inference Logs**: Realistic timestamps, latency values (50-500ms), status codes, prediction labels
+- **Classification Reports**: Complete metrics with per-class breakdown
+- **Confusion Matrix**: Visual 5x5 matrix for all labels
+- **Drift Reports**: Sample drift statistics and comparisons
+
+**Dashboard Configuration:**
+
+The dashboard includes a sidebar configuration panel where you can customize file paths:
+- Classification report: `reports/classification_report.json`
+- Confusion matrix: `reports/confusion_matrix.png`
+- Inference logs: `logs/inference_logs.jsonl`
+- Drift report: `reports/drift_report.json` (optional)
+
+**Screenshots Checklist (for Recruiters):**
+
+Capture these views for your portfolio:
+- ✅ Overview tab with KPI cards and charts
+- ✅ Model Quality tab showing confusion matrix
+- ✅ Monitoring tab with filtered analytics
+- ✅ Drift tab (if drift report available)
+- ✅ Runbook tab with operational guides
+
+**Features:**
+- Professional UI with custom CSS styling
+- Interactive Plotly charts
+- Real-time status badges (Healthy/Degraded/Missing Artifacts)
+- Graceful handling of missing data with empty states
+- Generate sample data buttons for quick demos
 
 ## 📊 Monitoring
 
@@ -346,10 +516,38 @@ Key configuration options:
 
 ### Running Tests
 
+Run the test suite using pytest:
+
 ```bash
-# Basic smoke tests (imports)
-python -c "import src.config; import src.data_loader"
+# Run all tests
+pytest tests/
+
+# Run specific test file
+pytest tests/test_validate_data.py
+
+# Run with verbose output
+pytest tests/ -v
+
+# Run with coverage (requires pytest-cov)
+pytest tests/ --cov=src --cov-report=html
 ```
+
+The test suite includes:
+- **Data validation tests**: Schema validation, label checks, class distribution
+- **Evaluation tests**: Metrics computation, artifact saving
+
+### Artifacts
+
+Training and evaluation generate artifacts saved to the `reports/` directory:
+
+- **Validation reports**: `validation_report.json` (if saved via CLI)
+- **Evaluation reports**: 
+  - `val_classification_report.json` - Validation set metrics
+  - `test_classification_report.json` - Test set metrics
+  - `val_confusion_matrix.png` - Validation confusion matrix
+  - `test_confusion_matrix.png` - Test confusion matrix
+
+These artifacts are also logged to MLflow and can be viewed in the MLflow UI.
 
 ### Code Style
 
@@ -378,32 +576,6 @@ Here are some example bullet points you can use to describe this project:
 
 - **Implemented a scalable ML inference service** using FastAPI and MLflow Model Registry, with real-time monitoring dashboards in Grafana and automated retraining workflows, reducing manual model management overhead by 80%.
 
-## 🤝 Contributing
-
-This is a student-friendly project. Feel free to:
-- Add more sophisticated drift detection algorithms
-- Implement additional model types
-- Add unit tests
-- Improve documentation
-- Add more monitoring metrics
-
-## 📜 License
-
-This project is provided as-is for educational purposes.
-
-## 🙏 Acknowledgments
-
-Built as a comprehensive MLOps learning project, demonstrating best practices for ML model lifecycle management.
-
----
-
-**Happy Learning! 🚀**
-
-
-
-Built as a comprehensive MLOps learning project, demonstrating best practices for ML model lifecycle management.
-
----
 
 **Happy Learning! 🚀**
 
