@@ -5,6 +5,7 @@ This module provides functions to load the support ticket dataset from CSV
 and split it into training, validation, and test sets.
 """
 
+import hashlib
 import pandas as pd
 from typing import Tuple
 from sklearn.model_selection import train_test_split
@@ -42,6 +43,14 @@ def load_support_ticket_data(path: str = None) -> pd.DataFrame:
     
     # Remove any rows with missing values
     df = df.dropna(subset=['text', 'label'])
+    
+    # Remove duplicate rows (same text and label combination)
+    initial_count = len(df)
+    df = df.drop_duplicates(subset=['text', 'label'], keep='first')
+    duplicates_removed = initial_count - len(df)
+    
+    if duplicates_removed > 0:
+        print(f"Removed {duplicates_removed} duplicate row(s)")
     
     # Reset index after dropping rows
     df = df.reset_index(drop=True)
@@ -128,4 +137,42 @@ def train_val_test_split(
     print(f"  Test: {len(test_df)} samples ({len(test_df)/len(df)*100:.1f}%)")
     
     return train_df, val_df, test_df
+
+
+def compute_dataset_fingerprint(df: pd.DataFrame) -> str:
+    """
+    Compute a fingerprint (hash) of the dataset for reproducibility.
+    
+    The fingerprint is computed from:
+    - Sorted text column values
+    - Sorted label column values
+    - Number of rows
+    
+    This allows tracking which exact dataset was used for training.
+    
+    Args:
+        df: DataFrame with 'text' and 'label' columns.
+    
+    Returns:
+        Hexadecimal hash string representing the dataset.
+    
+    Example:
+        >>> df = load_support_ticket_data()
+        >>> fingerprint = compute_dataset_fingerprint(df)
+        >>> print(f"Dataset fingerprint: {fingerprint}")
+    """
+    # Sort by text to ensure consistent hashing regardless of row order
+    df_sorted = df.sort_values(by=['text', 'label']).reset_index(drop=True)
+    
+    # Create a string representation of the data
+    data_str = ""
+    data_str += "|".join(df_sorted['text'].astype(str).tolist())
+    data_str += "||"
+    data_str += "|".join(df_sorted['label'].astype(str).tolist())
+    data_str += "||"
+    data_str += str(len(df_sorted))
+    
+    # Compute SHA256 hash
+    fingerprint = hashlib.sha256(data_str.encode('utf-8')).hexdigest()
+    return fingerprint
 
