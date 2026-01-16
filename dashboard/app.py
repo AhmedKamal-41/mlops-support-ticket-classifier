@@ -175,42 +175,47 @@ def render_header_row(status: str, last_updated: str):
 
 
 def sidebar_config():
-    """Render sidebar configuration."""
-    st.sidebar.header("Configuration")
+    """Render sidebar configuration with automatic path detection."""
+    st.sidebar.header(" Dashboard Info")
     
-    st.sidebar.subheader("File Paths")
-    
-    # Default paths
+    # Automatic path detection
     default_reports_dir = PROJECT_ROOT / "reports"
     default_logs_dir = PROJECT_ROOT / "logs"
     
-    # Path inputs
-    report_path = st.sidebar.text_input(
-        "Classification Report",
-        value=str(default_reports_dir / "classification_report.json")
-    )
+    # Detect paths automatically
+    report_path = default_reports_dir / "classification_report.json"
+    cm_path = default_reports_dir / "confusion_matrix.png"
+    logs_path = default_logs_dir / "inference_logs.jsonl"
+    drift_path = default_reports_dir / "drift_report.json"
     
-    cm_path = st.sidebar.text_input(
-        "Confusion Matrix",
-        value=str(default_reports_dir / "confusion_matrix.png")
-    )
+    # Show file status
+    st.sidebar.markdown("###  File Status")
     
-    logs_path = st.sidebar.text_input(
-        "Inference Logs",
-        value=str(default_logs_dir / "inference_logs.jsonl")
-    )
+    files_status = {
+        "Classification Report": report_path,
+        "Confusion Matrix": cm_path,
+        "Inference Logs": logs_path,
+        "Drift Report": drift_path
+    }
     
-    drift_path = st.sidebar.text_input(
-        "Drift Report (Optional)",
-        value=str(default_reports_dir / "drift_report.json")
-    )
+    for name, path in files_status.items():
+        exists = path.exists()
+        status_icon = "✅" if exists else "❌"
+        st.sidebar.markdown(f"{status_icon} **{name}**")
+        if not exists and name != "Drift Report":  # Drift is optional
+            st.sidebar.caption(f"Missing: {path.name}")
     
-    # Update session state
+    # Refresh button
+    if st.sidebar.button("🔄 Refresh Data", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+    
+    # Update session state with detected paths
     st.session_state.paths = {
-        'classification_report': Path(report_path) if report_path else None,
-        'confusion_matrix': Path(cm_path) if cm_path else None,
-        'inference_logs': Path(logs_path) if logs_path else None,
-        'drift_report': Path(drift_path) if drift_path else None
+        'classification_report': report_path if report_path.exists() else None,
+        'confusion_matrix': cm_path if cm_path.exists() else None,
+        'inference_logs': logs_path if logs_path.exists() else None,
+        'drift_report': drift_path if drift_path.exists() else None
     }
 
 
@@ -425,30 +430,41 @@ def render_model_quality_tab(report: dict, cm_image, df_logs: pd.DataFrame):
 def render_monitoring_tab(df_logs: pd.DataFrame):
     """Render Monitoring tab with filters and analytics."""
     
-    # Sidebar filters
-    st.sidebar.subheader("Filters")
+    if df_logs is None or df_logs.empty:
+        render_empty_state("No inference logs found", "Generate Sample Logs")
+        return
     
-    time_ranges = {
-        "Last 1h": timedelta(hours=1),
-        "Last 6h": timedelta(hours=6),
-        "Last 24h": timedelta(hours=24),
-        "Last 7d": timedelta(days=7),
-        "Last 30d": timedelta(days=30),
-        "All": None
-    }
+    # Filters in main content area
+    render_section_header("🔍 Filters")
     
-    selected_range = st.sidebar.selectbox("Time Range", list(time_ranges.keys()))
+    col1, col2, col3 = st.columns(3)
     
-    # Class filter
-    selected_classes = st.sidebar.multiselect(
-        "Class Filter",
-        options=LABELS,
-        default=LABELS
-    )
+    with col1:
+        time_ranges = {
+            "Last 1h": timedelta(hours=1),
+            "Last 6h": timedelta(hours=6),
+            "Last 24h": timedelta(hours=24),
+            "Last 7d": timedelta(days=7),
+            "Last 30d": timedelta(days=30),
+            "All": None
+        }
+        selected_range = st.selectbox("⏰ Time Range", list(time_ranges.keys()), index=2)  # Default to 24h
     
-    # Status code filter
-    status_options = ["All", "200", "500"]
-    selected_status = st.sidebar.selectbox("Status Code", status_options)
+    with col2:
+        # Get available classes from data
+        available_classes = LABELS
+        if 'predicted_label' in df_logs.columns:
+            available_classes = sorted(df_logs['predicted_label'].unique().tolist())
+        selected_classes = st.multiselect(
+            "🏷️ Class Filter",
+            options=available_classes,
+            default=available_classes,
+            help="Select classes to filter (leave all selected for no filter)"
+        )
+    
+    with col3:
+        status_options = ["All", "200", "500"]
+        selected_status = st.selectbox("📊 Status Code", status_options, index=0)
     
     if df_logs is None or df_logs.empty:
         render_empty_state("No inference logs found", "Generate Sample Logs")
@@ -472,15 +488,22 @@ def render_monitoring_tab(df_logs: pd.DataFrame):
     # Status filter
     if selected_status != "All" and 'status_code' in filtered_df.columns:
         # Handle both string and int status codes
-        status_val = int(selected_status)
-        filtered_df = filtered_df[filtered_df['status_code'] == status_val]
+        try:
+            status_val = int(selected_status)
+            filtered_df = filtered_df[filtered_df['status_code'].astype(str) == selected_status]
+        except (ValueError, TypeError):
+            # If conversion fails, try string comparison
+            filtered_df = filtered_df[filtered_df['status_code'].astype(str) == selected_status]
     
     # Show filter info
     if filtered_df.empty:
-        st.warning(f"No data matches the selected filters. Original dataset has {len(df_logs)} rows.")
+        st.warning(f"⚠️ No data matches the selected filters. Original dataset has {len(df_logs)} rows.")
+        st.info("💡 Try adjusting the filters above or clear them to see all data.")
         return
     
-    st.info(f"Showing {len(filtered_df)} of {len(df_logs)} requests (filtered)")
+    # Filter summary
+    st.success(f"✅ Showing **{len(filtered_df)}** of **{len(df_logs)}** requests")
+    st.divider()
     
     # Throughput Chart
     render_section_header("Throughput")
