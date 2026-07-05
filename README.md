@@ -566,16 +566,3 @@ This project demonstrates:
 - **Containerization**: Docker, Docker Compose
 - **CI/CD**: GitHub Actions workflows
 
-## 📄 Resume Bullet Points
-
-Here are some example bullet points you can use to describe this project:
-
-- **Built an end-to-end MLOps pipeline** for customer support ticket classification, implementing experiment tracking with MLflow, REST API deployment with FastAPI, and monitoring with Prometheus/Grafana, achieving automated model versioning and drift detection.
-
-- **Developed a production-ready ML system** with Docker containerization, CI/CD pipelines using GitHub Actions, and data drift detection, enabling continuous model retraining and deployment with 95%+ classification accuracy.
-
-- **Implemented a scalable ML inference service** using FastAPI and MLflow Model Registry, with real-time monitoring dashboards in Grafana and automated retraining workflows, reducing manual model management overhead by 80%.
-
-
-**Happy Learning! 🚀**
-
