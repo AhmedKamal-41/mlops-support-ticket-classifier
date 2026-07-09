@@ -312,16 +312,3 @@ streamlit run dashboard/app.py                           # http://localhost:8501
 ```
 
 ---
-
-## Résumé bullets
-
-- Built an **ML-powered IT ticket classifier** using NLP (TF-IDF + Logistic
-  Regression) to categorize help desk issues by support type.
-- Added **service desk routing logic** for priority, escalation path, support
-  team, and knowledge-base recommendations on top of the model's prediction.
-- Classified tickets across **Outlook, VPN, printer, account access, network,
-  hardware, and security** issue categories (15 IT categories total).
-- Created a **CLI/demo workflow** showing the model prediction, confidence score,
-  routing team, and suggested troubleshooting steps end-to-end.
-- Wrapped the classifier in an optional **MLOps stack** (MLflow tracking, FastAPI
-  serving, Prometheus/Grafana monitoring, Docker, CI/CD).
