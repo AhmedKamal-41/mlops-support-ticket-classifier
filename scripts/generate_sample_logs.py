@@ -50,10 +50,21 @@ def generate_sample_logs(
     # Generate logs
     logs = []
     
+<<<<<<< HEAD
     # Define latency patterns by label (some labels might have higher latency).
     # Derived from the IT categories in config.LABELS so this stays in sync with
     # whatever the model is trained on.
     label_latency_base = {label: random.randint(60, 130) for label in LABELS}
+=======
+    # Define latency patterns by label (some labels might have higher latency)
+    label_latency_base = {
+        'billing': 80,
+        'technical': 120,
+        'account': 70,
+        'shipping': 90,
+        'general': 60
+    }
+>>>>>>> d6dcda15bc146462239168e16e4b6c3da45b868a
     
     # Generate timestamps with more activity during business hours (9 AM - 5 PM)
     for i in range(num_logs):
@@ -72,11 +83,26 @@ def generate_sample_logs(
                 random_seconds = random.uniform(0, time_range_seconds)
                 timestamp = start_time + timedelta(seconds=random_seconds)
         
+<<<<<<< HEAD
         # Select a predicted label across the IT categories (roughly even, with
         # a little random weighting so the dashboard charts look realistic).
         predicted_label = random.choices(
             LABELS,
             weights=[random.uniform(0.5, 1.5) for _ in LABELS]
+=======
+        # Select predicted label (weighted distribution)
+        # Technical and billing are more common
+        label_weights = {
+            'billing': 0.25,
+            'technical': 0.30,
+            'account': 0.15,
+            'shipping': 0.15,
+            'general': 0.15
+        }
+        predicted_label = random.choices(
+            list(label_weights.keys()),
+            weights=list(label_weights.values())
+>>>>>>> d6dcda15bc146462239168e16e4b6c3da45b868a
         )[0]
         
         # Generate latency based on label and add some variance

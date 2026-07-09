@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
+<<<<<<< HEAD
 RAW_DATA_FILE = RAW_DATA_DIR / "it_support_tickets.csv"
 
 # Local (non-MLflow) model artifacts for the lightweight CLI / Streamlit demo.
@@ -23,6 +24,9 @@ RAW_DATA_FILE = RAW_DATA_DIR / "it_support_tickets.csv"
 MODELS_DIR = PROJECT_ROOT / "models"
 MODEL_FILE = MODELS_DIR / "classifier.pkl"
 VECTORIZER_FILE = MODELS_DIR / "vectorizer.pkl"
+=======
+RAW_DATA_FILE = RAW_DATA_DIR / "support_tickets_sample.csv"
+>>>>>>> d6dcda15bc146462239168e16e4b6c3da45b868a
 
 # MLflow configuration
 # Use local file-based backend (no database required)
@@ -35,6 +39,7 @@ MLFLOW_SERVER_HOST = os.getenv("MLFLOW_SERVER_HOST", "0.0.0.0")
 MLFLOW_SERVER_PORT = int(os.getenv("MLFLOW_SERVER_PORT", "5000"))
 
 # Model configuration
+<<<<<<< HEAD
 # Supported labels/categories for classification.
 # These are the IT service desk categories the ML model predicts. The service
 # desk workflow layer (src/service_desk.py) maps each of these to a priority,
@@ -56,6 +61,10 @@ LABELS = [
     "Offboarding",
     "Escalation Required",
 ]
+=======
+# Supported labels/categories for classification
+LABELS = ["billing", "technical", "account", "shipping", "general"]
+>>>>>>> d6dcda15bc146462239168e16e4b6c3da45b868a
 
 # Training configuration
 TRAIN_SIZE = 0.7  # 70% of data for training
