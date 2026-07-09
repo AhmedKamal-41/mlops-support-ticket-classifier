@@ -1,0 +1,42 @@
+# Dockerfile for MLflow tracking server
+# This container runs the MLflow UI and tracking server
+
+# Use Python 3.11 slim image as base
+FROM python:3.11-slim
+
+# Set working directory inside the container
+WORKDIR /app
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Install MLflow and required dependencies
+# MLflow server needs these packages to run
+RUN pip install --no-cache-dir \
+    mlflow==2.8.1 \
+    psycopg2-binary \
+    boto3
+
+# Create directory for MLflow artifacts
+# This will be mounted as a volume in docker-compose.yml
+RUN mkdir -p /mlruns
+
+# Expose port 5000 (MLflow default)
+EXPOSE 5000
+
+# Health check to ensure MLflow server is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:5000/health')" || exit 1
+
+# Run MLflow server
+# --host 0.0.0.0 makes it accessible from outside the container
+# --port 5000 specifies the port
+# --backend-store-uri file:///mlruns uses local file system for storage
+# --default-artifact-root /mlruns sets where artifacts are stored
+CMD ["mlflow", "server", \
+     "--host", "0.0.0.0", \
+     "--port", "5000", \
+     "--backend-store-uri", "file:///mlruns", \
+     "--default-artifact-root", "/mlruns"]
+

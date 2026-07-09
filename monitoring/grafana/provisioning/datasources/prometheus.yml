@@ -1,0 +1,15 @@
+# Grafana datasource provisioning configuration
+# This file automatically configures Prometheus as a data source when Grafana starts
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090  # Service name from docker-compose.yml
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+

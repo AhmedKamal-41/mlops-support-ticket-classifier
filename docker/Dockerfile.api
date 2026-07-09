@@ -1,0 +1,46 @@
+# Dockerfile for the FastAPI inference service
+# This container runs the FastAPI application that serves model predictions
+
+# Use Python 3.11 slim image as base
+FROM python:3.11-slim
+
+# Set working directory inside the container
+WORKDIR /app
+
+# Set environment variables
+# Prevent Python from writing .pyc files
+ENV PYTHONUNBUFFERED=1
+# Prevent Python from creating __pycache__ directories
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Install system dependencies (if needed)
+# Some Python packages may require system libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file first (for better Docker layer caching)
+# This way, if requirements don't change, Docker can reuse cached layers
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the entire source code
+COPY src/ ./src/
+COPY data/ ./data/
+
+# Create directory for MLflow artifacts (if needed)
+RUN mkdir -p /app/mlruns
+
+# Expose port 8000 (FastAPI default)
+EXPOSE 8000
+
+# Health check to ensure the service is running
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+
+# Run the FastAPI application using uvicorn
+# --host 0.0.0.0 makes it accessible from outside the container
+# --port 8000 specifies the port
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
